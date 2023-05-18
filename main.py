@@ -1,75 +1,71 @@
 import os
-import cv2
 import torch
-import torch.nn.parallel
-import torch.backends.cudnn as cudnn
-import argparse
-import numpy as np
-import random
-from clrnet.utils.config import Config
-from clrnet.engine.runner import Runner
-from clrnet.datasets import build_dataloader
+import torch.optim as optim
+import torch.nn as nn
+from torchvision.transforms import ToTensor
+from torch.utils.data import DataLoader
+from torchvision.datasets import DatasetFolder
+import subprocess
 
+# Define your CLRN model architecture
+class CLRN(nn.Module):
+    def __init__(self):
+        super(CLRN, self).__init__()
+        # Define your layers here
 
+    def forward(self, x):
+        # Implement the forward pass of your CLRN model
+        return x
+
+# Define your training loop
+def train(model, optimizer, criterion, train_loader):
+    model.train()
+    
+    for batch_idx, (data, target) in enumerate(train_loader):
+        optimizer.zero_grad()
+        output = model(data)
+        loss = criterion(output, target)
+
+        # Perform loss augmentation
+        augmented_loss = loss  # Add your loss augmentation code here
+
+        augmented_loss.backward()
+        optimizer.step()
+
+# Define your main function
 def main():
-    args = parse_args()
-    os.environ["CUDA_VISIBLE_DEVICES"] = ','.join(
-        str(gpu) for gpu in args.gpus)
+    # Clone the GitHub repository
+    git_repo = "https://github.com/carl-max/CLRnet-main-v2.git"
+    subprocess.run(["git", "clone", git_repo])
 
-    cfg = Config.fromfile(args.config)
-    cfg.gpus = len(args.gpus)
+    # Move to the cloned directory
+    repo_name = os.path.basename(git_repo)
+    os.chdir(repo_name)
 
-    cfg.load_from = args.load_from
-    cfg.resume_from = args.resume_from
-    cfg.finetune_from = args.finetune_from
-    cfg.view = args.view
-    cfg.seed = args.seed
+    # Initialize your CLRN model
+    model = CLRN()
 
-    cfg.work_dirs = args.work_dirs if args.work_dirs else cfg.work_dirs
+    # Define your training parameters
+    learning_rate = 0.001
+    batch_size = 32
+    num_epochs = 10
 
-    cudnn.benchmark = True
+    # Define your optimizer and loss function
+    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+    criterion = nn.CrossEntropyLoss()
 
-    runner = Runner(cfg)
+    # Define your training data loader
+    train_dataset = DatasetFolder("train_set", loader=torch.load, extensions=".pt", transform=ToTensor())
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 
-    if args.validate:
-        runner.validate()
-    elif args.test:
-        runner.test()
-    else:
-        runner.train()
+    # Train your model
+    for epoch in range(num_epochs):
+        train(model, optimizer, criterion, train_loader)
 
+    # Save your trained model
+    torch.save(model.state_dict(), 'CLRnet-main-v2.pth')
 
-def parse_args():
-    parser = argparse.ArgumentParser(description='Train a detector')
-    parser.add_argument('config', help='train config file path')
-    parser.add_argument('--work_dirs',
-                        type=str,
-                        default=None,
-                        help='work dirs')
-    parser.add_argument('--load_from',
-                        default=None,
-                        help='the checkpoint file to load from')
-    parser.add_argument('--resume_from',
-            default=None,
-            help='the checkpoint file to resume from')
-    parser.add_argument('--finetune_from',
-            default=None,
-            help='the checkpoint file to resume from')
-    parser.add_argument('--view', action='store_true', help='whether to view')
-    parser.add_argument(
-        '--validate',
-        action='store_true',
-        help='whether to evaluate the checkpoint during training')
-    parser.add_argument(
-        '--test',
-        action='store_true',
-        help='whether to test the checkpoint on testing set')
-    parser.add_argument('--gpus', nargs='+', type=int, default='0')
-    parser.add_argument('--seed', type=int, default=0, help='random seed')
-    args = parser.parse_args()
-
-    return args
-
-
+# Run the main function
 if __name__ == '__main__':
     main()
+
